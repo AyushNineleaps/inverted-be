@@ -4,6 +4,7 @@ import shutil
 
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
+from pydantic import BaseModel
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
 from dependencies.auth_dependency import get_current_user
@@ -12,7 +13,10 @@ from models.resume import Resume, ResumeSkill
 from schemas.resume import ResumeListSchema
 from schemas.user import CurrentUser
 from services.resume_ai_service import gemini_content_generator
+# , run_react_agent
 
+
+from services.resume_check import check_and_save_resume
 
 router = APIRouter(prefix='/resume',tags=['resume'])
 
@@ -23,26 +27,12 @@ os.makedirs(TEMP_DIR, exist_ok=True)
 @router.post('/upload')
 def file_upload(file: UploadFile= File(...),current_user: CurrentUser= Depends(role_required('admin','visitor')), db: Session= Depends(get_db)):
     
-    name, ext = os.path.splitext(file.filename)
-    
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    
-    unique_filename = f"{name}_{timestamp}{ext}"
-    
-    file_path = os.path.join(TEMP_DIR, unique_filename)
-    
-    with open(file_path,'wb') as buffer:
-        shutil.copyfileobj(file.file,buffer)
-    
-    print("uploaded File:",file.content_type)
-    print('dir:',file_path)
-    analysis = gemini_content_generator(file_path,file.content_type)
-
-    print("summary==",analysis.summary)
-    print("skills==",analysis.skills)
-    print("feedback==",analysis.feedback)
-    
-    
+    unique_filename, file_path, resume_text = (
+        check_and_save_resume(file)
+    )
+    # print(resume_text)
+    mime_type = file.content_type 
+    analysis = gemini_content_generator(file_path,mime_type)
 
     resume = Resume(
         file_name= unique_filename,
@@ -61,7 +51,7 @@ def file_upload(file: UploadFile= File(...),current_user: CurrentUser= Depends(r
         db.add(resumeSkill)
     
     db.commit()
-    # db.refresh(resume)
+    db.refresh(resume)
     print("HERE")
     return {
         'message':'file Upload successfully',
@@ -82,3 +72,13 @@ def get_resumes(current_user: CurrentUser= Depends(get_current_user), db: Sessio
     else:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail='Action not allowed.')
     
+class QuestionRequest(BaseModel):
+    question: str
+
+
+# @router.post('/calc')
+# def calculation(questionPayload:QuestionRequest ):
+#     result = run_react_agent(
+#         questionPayload.question
+#     )
+#     return {'result':result}
