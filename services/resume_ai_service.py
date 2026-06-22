@@ -17,7 +17,6 @@ class ResumeAnalysis(BaseModel):
 def gemini_content_generator(file_path: str, mime_type: str):
     with open(file_path, 'rb') as f:
         file_bytes = f.read()
-    print(file_bytes)
     prompt = """
             Role: 
             You are a Senior Recruiter and Talent Acquisition Strategist. Your role is about analyzing the resume and find out crucial information regarding the candidate.

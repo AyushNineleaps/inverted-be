@@ -6,7 +6,6 @@ from schemas.user import CurrentUser
 
 def role_required(*allowed_roles):
     def role_checker(current_user: CurrentUser= Depends(get_current_user)):
-        print ('dfd',current_user)
         if current_user.role not in allowed_roles:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail='Not Allowed.')
         

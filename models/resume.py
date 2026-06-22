@@ -1,5 +1,5 @@
 import uuid
-from sqlalchemy import Column, ForeignKey, String, DateTime, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, ForeignKey, String, DateTime, Text, UniqueConstraint
 from datetime import datetime, timezone
 from database import Base 
 from sqlalchemy.orm import relationship
@@ -20,6 +20,7 @@ class Resume(Base):
         cascade="all, delete",
         lazy="selectin"
     )
+    vectored= Column(Boolean,nullable=True)
     user = relationship('User', lazy='joined')    
     created_by_name = association_proxy('user', 'name')
     

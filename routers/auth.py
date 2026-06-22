@@ -15,7 +15,6 @@ router = APIRouter()
 
 @router.post('/new-user',status_code=status.HTTP_201_CREATED)
 def add_new_user(newUser: RegisterRequest, db: Session= Depends(get_db)):
-    print(newUser)
     # return {"message": newUser}
     user_found = db.query(User).filter(User.email==newUser.email.lower()).first()
     if user_found:
@@ -48,17 +47,13 @@ def add_new_user(newUser: RegisterRequest, db: Session= Depends(get_db)):
     })
 @router.post('/login',status_code= status.HTTP_200_OK)
 def login_user(loginPayload:LoginRequest, response: Response, db: Session= Depends(get_db)):
-    print(loginPayload)
     user: User = db.query(User).filter(User.email == loginPayload.email).first()
-    print(user)
     if not user:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail= 'Invalid Credentials')
     if user:
         valid_pass:bool= verify_password(loginPayload.password, user.password_hash)
         if not valid_pass:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,detail= 'email or password is incorrect')
-        print(valid_pass)
-    
     access_token= jwt_creation({
         "sub":str(user.id),
         "email": user.email,
@@ -96,8 +91,6 @@ def logout_user(response : Response):
 
 @router.get('/profile')
 def user_detail(response: Response, current_user: CurrentUser= Depends(role_required('admin','visitor')),db: Session= Depends(get_db)):
-    print(current_user)
-    
     user: User= db.query(User).filter(User.email == current_user.email).first()
     
     return {
@@ -116,7 +109,6 @@ def user_detail(response: Response, current_user: CurrentUser= Depends(role_requ
 async def google_callback(request: Request,response: Response,db:Session= Depends(get_db)):
     token = await oauth.google.authorize_access_token(request)
     user_info= token['userinfo']
-    print(user_info)     
     user:User = db.query(User).filter(User.email==user_info['email']).first()        
     if not user:
         user = User(name=user_info['name'],email=user_info['email'],password_hash=None,google_sub=user_info['sub'])
@@ -149,7 +141,6 @@ async def google_callback(request: Request,response: Response,db:Session= Depend
 @router.get("/google/login")
 async def google_login(request: Request):
     redirect_uri = request.url_for("google_callback")
-    print (redirect_uri)
     return await oauth.google.authorize_redirect(
         request,
         redirect_uri

@@ -12,7 +12,6 @@ router= APIRouter()
 
 @router.put('/theme-update/{id}')
 def update_theme(id:str,themePayload:ThemePayload, db:Session= Depends(get_db),current_user: CurrentUser= Depends(get_current_user)):
-    print(current_user,themePayload)
     if current_user.role == 'admin' or current_user.sub == id:
         user: User = db.query(User).filter(User.id == id, User.is_active== True).first()
         if not user:
@@ -100,8 +99,6 @@ def get_all_users(current_user: CurrentUser= Depends(role_required('admin')), db
     
 @router.get('/user-detail/{id}')
 def user_detail(id:str, current_user: CurrentUser= Depends(role_required('admin')),db: Session= Depends(get_db)):
-    print("id",id)
-    
     user: User= db.query(User).filter(User.id == id).first()
     
     return {

@@ -31,3 +31,25 @@ class ResumeListSchema(BaseModel):
     updated_at:datetime
     created_by_name: str | None = None
     skills: list[ResumeSkillSchema]=[]
+    
+
+class ResumeJsonSchema(BaseModel):
+    file_name:str
+    summary: str
+    feedback: str
+    skills:list[str]
+
+
+class SearchedResumeListSchema(BaseModel):
+    model_config= ConfigDict(from_attributes= True)
+    id:str
+    file_name:str
+    summary:str | None = None
+    created_at:datetime
+    feedback:str | None = None
+    created_by:str
+    updated_at:datetime
+    created_by_name: str | None = None
+    skills: list[ResumeSkillSchema]=[]
+    match_percent:float
+   

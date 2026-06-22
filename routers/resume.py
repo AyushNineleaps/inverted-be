@@ -5,14 +5,19 @@ import shutil
 from fastapi import APIRouter, Depends, File, HTTPException, UploadFile, status
 
 from pydantic import BaseModel
+from sqlalchemy import insert, or_, select
 from sqlalchemy.orm import Session, joinedload
 from database import get_db
 from dependencies.auth_dependency import get_current_user
 from dependencies.role_dependency import role_required
 from models.resume import Resume, ResumeSkill
-from schemas.resume import ResumeListSchema
+from schemas.resume import ResumeJsonSchema, ResumeListSchema, SearchedResumeListSchema
 from schemas.user import CurrentUser
+from services.resume_search_service import resume_search_service
+from services.chroma_service import chroma_service
 from services.resume_ai_service import gemini_content_generator
+from services.resume_embedding_service import resume_embedding_service
+
 # , run_react_agent
 
 
@@ -30,7 +35,6 @@ def file_upload(file: UploadFile= File(...),current_user: CurrentUser= Depends(r
     unique_filename, file_path, resume_text = (
         check_and_save_resume(file)
     )
-    # print(resume_text)
     mime_type = file.content_type 
     analysis = gemini_content_generator(file_path,mime_type)
 
@@ -52,7 +56,13 @@ def file_upload(file: UploadFile= File(...),current_user: CurrentUser= Depends(r
     
     db.commit()
     db.refresh(resume)
-    print("HERE")
+    full_resume = (
+        db.query(Resume)
+        .options(joinedload(Resume.skills)) # pre-loads the skills list into memory
+        .filter(Resume.id == resume.id)
+        .first()
+    )
+    resume_embedding_service.embed_resume(full_resume)
     return {
         'message':'file Upload successfully',
         'filename': file.filename
@@ -61,13 +71,10 @@ def file_upload(file: UploadFile= File(...),current_user: CurrentUser= Depends(r
 @router.get('/resume-list', response_model=list[ResumeListSchema])
 def get_resumes(current_user: CurrentUser= Depends(get_current_user), db: Session= Depends(get_db)):
     if(current_user.role == 'admin'):
-        print ('admin')
         resume_list:list[Resume] = db.query(Resume).all()
         return resume_list
     elif(current_user.role == 'visitor'):
-        print ('visitor')
         resume_list: list[Resume] = db.query(Resume).filter(Resume.created_by == current_user.sub).all()
-        print(resume_list)
         return  resume_list
     else:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,detail='Action not allowed.')
@@ -82,3 +89,86 @@ class QuestionRequest(BaseModel):
 #         questionPayload.question
 #     )
 #     return {'result':result}
+
+@router.post('/resume-json')
+def resume_json(resume_list:list[ResumeJsonSchema],db:Session= Depends(get_db),current_user: CurrentUser= Depends(get_current_user)):
+    for resume_entry in resume_list:
+        resume = Resume(
+            file_name= resume_entry.file_name,
+            summary= resume_entry.summary,
+            feedback= resume_entry.feedback,
+            created_by= current_user.sub
+        )
+        db.add(resume)
+        db.flush() 
+        
+        skill_data = [
+            {   
+                'skill_name':skill,
+                'resume_id': resume.id
+            }
+            for skill in resume_entry.skills
+        ]
+        db.execute(insert(ResumeSkill),skill_data)
+        
+    db.commit()
+    return {
+        'message':'Resumes uploaded successfully',
+    }
+    
+@router.get('/start-embedding')
+def embedding_start(current_user:CurrentUser= Depends(get_current_user),db:Session= Depends(get_db)):
+    stmt = (
+            select(Resume)
+            .options(joinedload(Resume.skills)) 
+            .where(
+                or_(
+                    Resume.vectored.is_(None),
+                    Resume.vectored == False
+                )
+            )
+        )
+    resume_list=db.execute(stmt).scalars().unique().all()
+    chroma_service.count()
+
+    if len(resume_list) > 0:
+        for resume_entry in resume_list:
+            resume_embedding_service.embed_resume(resume_entry)
+            resume_entry.vectored = True
+            db.commit()
+
+@router.get('/search',response_model= list[SearchedResumeListSchema])
+
+def search_vector(search_term:str,current_user:CurrentUser= Depends(role_required('admin')),db:Session= Depends(get_db)):
+    result = resume_search_service.search_input(search_term)
+    metadata= result['metadatas'][0]
+    distance= result['distances'][0]
+    id_rank_map={}
+    for meta,dist in zip(metadata,distance):
+        if meta['resume_id'] not in id_rank_map:
+            id_rank_map[meta['resume_id']]= dist
+            
+    resumeIds=list(id_rank_map.keys())    
+    distances=list(id_rank_map.values())    
+    chroma_service.count()
+    if(len(resumeIds)>0):
+        stmt = select(Resume).where(Resume.id.in_(resumeIds))
+        unordered_resumes = db.scalars(stmt).all()
+        new_resume_list=[]
+        for resume in unordered_resumes:
+            resume_data= {
+                ** resume.__dict__,
+                'created_by_name': resume.created_by_name,
+                'match_percent': (1 - id_rank_map.get(str(resume.id),0.0))*100
+            }
+            new_resume_list.append(resume_data)
+            
+        order_mapping = {id_str: index for index, id_str in enumerate(resumeIds)}
+        
+        ordered_resumes = sorted(
+            new_resume_list, 
+            key=lambda resume: order_mapping.get(str(resume['id']), len(resumeIds))
+        )
+        
+        return ordered_resumes
+    return []
