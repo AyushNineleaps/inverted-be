@@ -15,7 +15,7 @@ from schemas.resume import ResumeJsonSchema, ResumeListSchema, SearchedResumeLis
 from schemas.user import CurrentUser
 from services.resume_search_service import resume_search_service
 from services.chroma_service import chroma_service
-from services.resume_ai_service import gemini_content_generator
+from services.resume_ai_service import SearchIntent, gemini_content_generator, search_chunk_helper
 from services.resume_embedding_service import resume_embedding_service
 
 # , run_react_agent
@@ -140,7 +140,8 @@ def embedding_start(current_user:CurrentUser= Depends(get_current_user),db:Sessi
 @router.get('/search',response_model= list[SearchedResumeListSchema])
 
 def search_vector(search_term:str,current_user:CurrentUser= Depends(role_required('admin')),db:Session= Depends(get_db)):
-    result = resume_search_service.search_input(search_term)
+    query_type:SearchIntent=  search_chunk_helper(search_term)
+    result = resume_search_service.search_input(input= search_term,chunk_type=query_type.target_chunk_type)
     metadata= result['metadatas'][0]
     distance= result['distances'][0]
     id_rank_map={}

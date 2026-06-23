@@ -30,11 +30,18 @@ class ChromaService:
     def search(
         self,
         query_embedding: list,
+        chunk_type:str,
         limit: int = 5
     ):
+        where_filter : chromadb.Where | None = None
+        if chunk_type != '':
+            where_filter = {
+                "chunk_type":chunk_type
+            }
         return self.collection.query(
             query_embeddings=[query_embedding],
-            n_results=limit
+            n_results=limit,
+            where=where_filter
         )
     def count(self):
         total_records = self.collection.count()
