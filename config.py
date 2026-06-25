@@ -14,3 +14,4 @@ DATABASE_URL = os.getenv("DATABASE_URL")
 
 config= Config()
 GEMINI_API_KEY = config("GEMINI_KEY")
+

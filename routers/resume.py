@@ -15,7 +15,7 @@ from schemas.resume import ResumeJsonSchema, ResumeListSchema, SearchedResumeLis
 from schemas.user import CurrentUser
 from services.resume_search_service import resume_search_service
 from services.chroma_service import chroma_service
-from services.resume_ai_service import SearchIntent, gemini_content_generator, search_chunk_helper
+from services.resume_ai_service import SearchIntent, llm_parser, search_chunk_helper
 from services.resume_embedding_service import resume_embedding_service
 
 # , run_react_agent
@@ -36,7 +36,7 @@ def file_upload(file: UploadFile= File(...),current_user: CurrentUser= Depends(r
         check_and_save_resume(file)
     )
     mime_type = file.content_type 
-    analysis = gemini_content_generator(file_path,mime_type)
+    analysis = llm_parser(file_path,mime_type,resume_text)
 
     resume = Resume(
         file_name= unique_filename,
