@@ -31,7 +31,7 @@ class ChromaService:
         self,
         query_embedding: list,
         chunk_type:str,
-        limit: int = 5
+        limit: int = 3
     ):
         where_filter : chromadb.Where | None = None
         if chunk_type != '':

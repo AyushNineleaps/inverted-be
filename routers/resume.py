@@ -11,13 +11,15 @@ from database import get_db
 from dependencies.auth_dependency import get_current_user
 from dependencies.role_dependency import role_required
 from models.resume import Resume, ResumeSkill
+from schemas.chatbot import ChatbotResponseSchema
 from schemas.resume import ResumeJsonSchema, ResumeListSchema, SearchedResumeListSchema
 from schemas.user import CurrentUser
+from services.resume_helper_service import fetch_resume_details
 from services.resume_search_service import resume_search_service
 from services.chroma_service import chroma_service
 from services.resume_ai_service import SearchIntent, llm_parser, search_chunk_helper
 from services.resume_embedding_service import resume_embedding_service
-
+from services.chatbot_service import chatbot_service
 # , run_react_agent
 
 
@@ -144,6 +146,7 @@ def search_vector(search_term:str,current_user:CurrentUser= Depends(role_require
     result = resume_search_service.search_input(input= search_term,chunk_type=query_type.target_chunk_type)
     metadata= result['metadatas'][0]
     distance= result['distances'][0]
+    print("metadata",metadata)
     id_rank_map={}
     for meta,dist in zip(metadata,distance):
         if meta['resume_id'] not in id_rank_map:
@@ -173,3 +176,19 @@ def search_vector(search_term:str,current_user:CurrentUser= Depends(role_require
         
         return ordered_resumes
     return []
+
+@router.get('/chatbot',response_model=ChatbotResponseSchema)
+def chatbot(user_input:str,db:Session= Depends(get_db)):
+    print(user_input)
+    response =chatbot_service.chatbot_handler(user_input)
+    table_data:list[ResumeListSchema]=[]
+    if(response.action=='fetch_resume'):
+        table_data= fetch_resume_details(response.resume_ids,db)
+        print(table_data)
+    bot_response: ChatbotResponseSchema={
+        'message':response.message,
+        'action':response.action,
+        'table_data':table_data,
+        'creator':'bot'
+    }
+    return bot_response
