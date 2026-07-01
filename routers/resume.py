@@ -144,11 +144,11 @@ def embedding_start(current_user:CurrentUser= Depends(get_current_user),db:Sessi
 def search_vector(search_term:str,current_user:CurrentUser= Depends(role_required('admin')),db:Session= Depends(get_db)):
     query_type:SearchIntent=  search_chunk_helper(search_term)
     result = resume_search_service.search_input(input= search_term,chunk_type=query_type.target_chunk_type)
-    metadata= result['metadatas'][0]
+    metadatas= result['metadatas'][0]
     distance= result['distances'][0]
-    print("metadata",metadata)
+    print("metadata",metadatas)
     id_rank_map={}
-    for meta,dist in zip(metadata,distance):
+    for meta,dist in zip(metadatas,distance):
         if meta['resume_id'] not in id_rank_map:
             id_rank_map[meta['resume_id']]= dist
             
@@ -178,11 +178,12 @@ def search_vector(search_term:str,current_user:CurrentUser= Depends(role_require
     return []
 
 @router.get('/chatbot',response_model=ChatbotResponseSchema)
-def chatbot(user_input:str,db:Session= Depends(get_db)):
+def chatbot(user_input:str,session_id:str,db:Session= Depends(get_db)):
     print(user_input)
-    response =chatbot_service.chatbot_handler(user_input)
+    response =chatbot_service.chatbot_handler(db=db,question=user_input,session_id=session_id)
     table_data:list[ResumeListSchema]=[]
-    if(response.action=='fetch_resume'):
+    print("llm response",response)
+    if(response.action=='fetch_resume' or response.action=='compare_resume'):
         table_data= fetch_resume_details(response.resume_ids,db)
         print(table_data)
     bot_response: ChatbotResponseSchema={

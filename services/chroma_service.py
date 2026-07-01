@@ -43,6 +43,36 @@ class ChromaService:
             n_results=limit,
             where=where_filter
         )
+    def search(
+        self,
+        query_embedding: list,
+        chunk_type: str,
+        limit: int = 3,
+        resume_ids: list = None
+    ):
+        conditions = []
+        
+        # 1. Handle chunk_type filter
+        if chunk_type != '':
+            conditions.append({"chunk_type": chunk_type})
+            
+        # 2. Handle resume_ids filter using the $in operator
+        if resume_ids:
+            conditions.append({"resume_id": {"$in": resume_ids}})
+            
+        # 3. Construct the final Chroma where_filter
+        where_filter = None
+        if len(conditions) == 1:
+            where_filter = conditions[0]
+        elif len(conditions) > 1:
+            where_filter = {"$and": conditions}
+
+        return self.collection.query(
+            query_embeddings=[query_embedding],
+            n_results=limit,
+            where=where_filter
+        )
+        
     def count(self):
         total_records = self.collection.count()
         print("total_records",total_records)
