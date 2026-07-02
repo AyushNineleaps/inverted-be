@@ -68,7 +68,7 @@ prompt= ChatPromptTemplate.from_template(
     Question: {question}
     Answer:"""
 )
-llm = OllamaLLM(model="qwen2.5:1.5b-instruct-q8_0",temperature=0)
+llm = OllamaLLM(model="llama3.2",temperature=0)
 
 chain= prompt | llm | StrOutputParser()
 

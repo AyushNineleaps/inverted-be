@@ -49,7 +49,7 @@ def llm_parser(file_path: str, mime_type: str,resume_text:str):
     print(f"Token Count: {token_count}")
     
     response = ollama.chat(
-        model="qwen2.5:1.5b-instruct-q8_0",
+        model="llama3.2",
         messages=[
             {
                 "role": "user",
@@ -88,7 +88,7 @@ Respond strictly in this JSON format:
     print("search Token Count:", token_count)
     
     response = ollama.chat(
-        model="qwen2.5:1.5b-instruct-q8_0",
+        model="llama3.2",
         messages=[
             {
                 "role": "user",

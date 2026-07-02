@@ -47,7 +47,7 @@
 # retriever= vectorstore.as_retriever(search_kwargs={'k':3})
 
 # # llm= init_chat_model('gemini-2.5-flash',model_provider='google_genai',api_key=GEMINI_API_KEY,temperature=0.1)
-# llm = OllamaLLM(model="qwen2.5:1.5b-instruct-q8_0")
+# llm = OllamaLLM(model="llama3.2")
 
 # # prompt
 # prompt = ChatPromptTemplate.from_template(
@@ -123,7 +123,7 @@ from langchain_ollama import OllamaLLM
 
 def test_json():
     llm = OllamaLLM(
-        model="qwen2.5:1.5b-instruct-q8_0",
+        model="llama3.2",
         temperature=0,
         format="json",
         options={"num_predict": 256}

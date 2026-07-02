@@ -26,7 +26,7 @@ class ChatbotResponse(BaseModel):
 class ChatbotService:
     def __init__(self):
         self.llm = ChatOllama(
-            model="qwen2.5:1.5b-instruct-q8_0",
+            model="llama3.2",
             temperature=0,
             format="json",  # Forces the engine to stream raw JSON instantly
             num_thread=4    # Optimized for your 4-core i5 CPU
@@ -54,7 +54,7 @@ class ChatbotService:
                     ### CRITICAL SCHEMA SAFETY RULE:
                     - If the provided 'chat_history' is completely empty [], or if the user introduces a brand new, standalone keyword query (like "angular" or "python"), you MUST set "target_ids" to an empty list []. 
                     - Absolutely DO NOT invent, guess, hallucinate, or reuse any random UUID hashes under any circumstances if they are not explicitly written in the chat history.
-
+                    - Do not truncate or leave out any IDs. If you are extracting a list of collective IDs from a previous state block, you MUST copy every single unique ID string exactly as written. Count them to ensure none are missing.
                     ### OUTPUT FORMAT:
                     Output a single raw JSON object only. Do not wrap in markdown backticks or block strings.
                     {{"intent": "compare_resume", "target_ids": ["23a7ffe6-ebcc-461f-82a2-42ac464935fb", "a8c2229a-3f33-4172-93e5-92126e6c0cdb"], "standalone_query": ""}}
@@ -70,8 +70,9 @@ class ChatbotService:
                     ### CRITICAL RULES:
                     1. SCAN EVERY SINGLE CHUNK. If a Resume Chunk explicitly mentions the Search Term anywhere (including raw keyword lists), you MUST extract its ID. Do not skip any matching chunk.
                     2. Even if a chunk only lists skills without a narrative summary, count it as a valid matching candidate and infer their professional focus from those skills.
-                    3. Write a short 1-2 sentence collective summary describing the matching candidates under the "message" key. 
-                    4. Collect and put the exact string IDs of ALL unique matching candidates inside the "resume_ids" array. Do not duplicate IDs.
+                    3. Write a short 1-2 sentence collective summary describing the matching candidates under the "message" key.
+                    4. **USER-FACING SAFETY:** Never use internal developer terminology like 'Chunk', 'Segment', 'Document 1', or 'Resume ID' in the text of the "message". Refer to candidates naturally (e.g., "The candidate with ID...", or use the candidate name/filename if visible).
+                    5. Collect and put the exact string IDs of ALL unique matching candidates inside the "resume_ids" array. Do not duplicate IDs.
 
                     ### EXPECTED OUTPUT FORMAT:
                     {{"message": "Found candidates with experience matching the requested technology.", "resume_ids": ["23a7ffe6-ebcc-461f-82a2-42ac464935fb"]}}
@@ -87,7 +88,11 @@ class ChatbotService:
             1. Write a 1-3 sentence analysis for the "message" field highlighting the clear differences, skill trade-offs, or contrasting seniorities between the profiles based strictly on the context.
             2. Put their exact string IDs inside the "resume_ids" array. If no profile matches, leave the array empty.
             3. Do NOT invent outside history or information. If details are missing, contrast only what is explicitly written.
-            4. Do NOT mention structural variables like "Resume ID", "Chunk 1", or numeric match counts anywhere within the text of the "message".
+            
+            ### CRITICAL USER-INTERFACE INSTRUCTIONS:
+            - The end-user does NOT know that the data is split into "Chunks" or "Resume Chunks". 
+            - **NEVER** use words like "Chunk 1", "Resume Chunk 3", "Document", or "ID structural variables" anywhere in your text explanation. 
+            - Instead, refer to them naturally by their **Candidate Name** or **Filename** found inside the context data (e.g., "Marcus Vance highlights a deeper expertise...", "Tarik Al Mansoor focuses on general experience..."). If names are completely missing, refer to them cleanly as "The first candidate" or "The second candidate".
 
             ### EXPECTED OUTPUT FORMAT:
             {{"message": "A short, professional analysis contrasting the skills and experience of the candidates found in the context.", "resume_ids": ["a100e732-2efe-47a9-a7d9-dd6518b083b8"]}}
